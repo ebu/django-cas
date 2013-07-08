@@ -2,7 +2,9 @@ from urlparse import urljoin
 from urllib import urlencode, urlopen
 from django.db import models
 from django.conf import settings
-from django.contrib.auth.models import User
+# Cuony - Use custon user model
+from django.contrib.auth import get_user_model
+##from django.contrib.auth.models import User
 from django.core.exceptions import ObjectDoesNotExist
 from django_cas.exceptions import CasTicketException, CasConfigException
 # Ed Crewe - add in signals to delete old tickets
@@ -15,10 +17,12 @@ from django.contrib.sessions.backends.db import SessionStore
 from django.dispatch import receiver
 from django.utils.translation import ugettext_lazy as _
 
+User = get_user_model()
+
 
 class Tgt(models.Model):
-    username = models.CharField(max_length = 255, unique = True)
-    tgt = models.CharField(max_length = 255)
+    username = models.CharField(max_length=255, unique=True)
+    tgt = models.CharField(max_length=255)
 
     def get_proxy_ticket_for(self, service):
         """Verifies CAS 2.0+ XML-based authentication ticket.
@@ -50,23 +54,26 @@ class Tgt(models.Model):
         finally:
             page.close()
 
+
 class PgtIOU(models.Model):
     """ Proxy granting ticket and IOU """
-    pgtIou = models.CharField(max_length = 255, unique = True)
-    tgt = models.CharField(max_length = 255)
-    created = models.DateTimeField(auto_now = True)
+    pgtIou = models.CharField(max_length=255, unique=True)
+    tgt = models.CharField(max_length=255)
+    created = models.DateTimeField(auto_now=True)
+
 
 def get_tgt_for(user):
     if not settings.CAS_PROXY_CALLBACK:
         raise CasConfigException("No proxy callback set in settings")
 
     try:
-        return Tgt.objects.get(username = user.username)
+        return Tgt.objects.get(username=user.username)
     except ObjectDoesNotExist:
         raise CasTicketException("no ticket found for user " + user.username)
 
+
 def delete_old_tickets(**kwargs):
-    """ Delete tickets if they are over 2 days old 
+    """ Delete tickets if they are over 2 days old
         kwargs = ['raw', 'signal', 'instance', 'sender', 'created']
     """
     sender = kwargs.get('sender', None)
@@ -84,7 +91,7 @@ class SessionServiceTicket(models.Model):
     for authentication
     """
 
-    service_ticket = models.CharField(_('service ticket'), max_length=256, primary_key=True)
+    service_ticket = models.CharField(_('service ticket'), max_length=255, primary_key=True)
     session_key = models.CharField(_('session key'), max_length=40)
 
     class Meta:
@@ -121,6 +128,7 @@ def map_service_ticket(sender, **kwargs):
         SessionServiceTicket.objects.create(service_ticket=ticket,
             session_key=session_key
         )
+
 
 @receiver(user_logged_out)
 def delete_service_ticket(sender, **kwargs):
